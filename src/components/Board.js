@@ -1,31 +1,29 @@
 import React, { useState } from "react";
+import { useEffect } from "react";
 
 const Board = () => {
 
   // - Field states: bomb, bomb count in surrounding, bomb count in surrounding = 0 => check surrounding
   // - stop surrounding check if a bomb was found in surrounding => display bomb count
 
-
-  let [gameOver, setGameOver] = useState(false)
-  let [reloadBoard, setReloadBoard] = useState(0)
+  let [boardArray, setBoardArray] = useState([])
   let [bombsPlaced, setBombsPlaced] = useState(false)
-
+  let [fieldsChecked, setFieldsChecked] = useState(0)
+  
+  let gameStates = { running: 'running', lost: 'lost', won: 'won' }
+  let [gameState, setGameState] = useState("running")
+  let [reload, setReload] = useState(0)
 
   let boardConfig = {
     rows: 8,
     cols: 8,
     bombs: 10
   }
+  boardConfig.fieldsTotal = boardConfig.rows*boardConfig.cols
+  boardConfig.fieldsNoBombs = boardConfig.fieldsTotal-boardConfig.bombs
 
-  // initialize board array
-  let [boardArray, setBoardArray] = useState([])
 
   const initBoard = () => {
-
-    if(boardArray.length > 0) {
-      // console.log("Board already initialized - do not init again")
-      return
-    }
 
     console.log("Creating board...")
 
@@ -34,7 +32,13 @@ const Board = () => {
     // initialize board objects
     arr = arr.map((row, rowIndex) => {
       return row.map((item, colIndex) => {
-        return { checked: false, bomb: false, bombsAround: 0, row: rowIndex, col: colIndex }
+        return { 
+          checked: false, 
+          flagged: false,
+          bomb: false, 
+          bombsAround: 0, 
+          row: rowIndex, 
+          col: colIndex }
       })
     })
     setBoardArray(arr)
@@ -42,14 +46,7 @@ const Board = () => {
 
   const placeBombsRandomly = () => {
     
-    if(boardArray.length == 0) {
-      // console.log("Board not initialized - not placing bombs")
-      return
-    }
-    if(bombsPlaced) {
-      // console.log("Bombs already placed - not placing bombs")
-      return
-    }
+    if(bombsPlaced) { return } // bombs already placed? return
     
     console.log("Placing bombs...")
     
@@ -62,8 +59,8 @@ const Board = () => {
       let row = 0
       let col = 0
       while(!bombPlaced) {
-        row = Math.floor(Math.random()*boardConfig.rows)
-        col = Math.floor(Math.random()*boardConfig.cols)
+        row = Math.floor(Math.random()*boardConfig.rows) // random row
+        col = Math.floor(Math.random()*boardConfig.cols) // random col
         if(!isBomb(row, col)) {
           setBomb(row, col)
           bombPlaced = true
@@ -83,12 +80,36 @@ const Board = () => {
     boardArray[row][column].bomb = status
   }
 
+  // when field was clicked 
+  // => check if game is done!
+  // game is done if:
+  //  - checked fields cound == normal Fields count
+  //  - flags do not need - and prob SHOULD not get evaluated
+  useEffect(() => {
+    console.log("Fields checked: ", `${fieldsChecked}/${boardConfig.fieldsNoBombs}`)
+    if(fieldsChecked == boardConfig.fieldsNoBombs) {
+      console.log("Game won!")
+      setGameState(gameStates.won)
+    }
+  }, [fieldsChecked, boardConfig, gameStates])
+
+
+  // board initialized? => place bombs
+  useEffect(() => {
+    if(boardArray.length > 0) {
+      placeBombsRandomly()
+    }
+    else {
+      initBoard()
+    }
+  }, [boardArray])
+
 /**
    * Return value of check surrounding?
    * 
    * => nothing: just mark fields and label bomb count!
    *  
-   * @param {*} field 
+   * @param {*} field
    */
   const checkSurrounding = (field) => {
     let row = field.row
@@ -101,6 +122,8 @@ const Board = () => {
 
     let bombsAround = 0;
     let fieldsSurroundedToCheck = []
+
+    // check direct surrounding
 
     // loop through rows
     for(let r = rowStart; r<=rowEnd; r++) {
@@ -115,71 +138,101 @@ const Board = () => {
         if(field.bomb) {
           bombsAround++
         }
-        if(field.checked) {
-          continue
-        }
-        field.checked = true
         fieldsSurroundedToCheck.push(field)
       }
     }
     // set bombs that were found in surrounding
     field.bombsAround = bombsAround
-    console.log(fieldsSurroundedToCheck.length)
+    field.checked = true
+    // setFieldsChecked([...fieldsChecked, 1])
 
+    // only continue checking fields which do not have a bomb in their surrounding
     // if we found a bomb in surrounding => check fields in surround which are no bombs and check THEIR surrounding too
-    // if we did not found a bomb in surrounding, we check ALL our surrounded fields
-    if(bombsAround == 0 && fieldsSurroundedToCheck.length > 0) {
+    if(bombsAround == 0) {
       fieldsSurroundedToCheck.forEach(fieldSub => {
-        checkSurrounding(fieldSub)        
+        if(!fieldSub.bomb && !fieldSub.checked) {
+          checkSurrounding(fieldSub)
+        }
       })
     }
+  }
 
+  const flagField = (e, field) => {
+    e.preventDefault()
+    
+    field.flagged = !field.flagged
+    setReload(reload +1)
   }
 
   const checkField = (field) => {
-    console.log("Clicked: ", field)
+    // console.log("Clicked: ", field)
 
     // bomb clicked? game ends!
     if(field.bomb) {
-      setGameOver(true)
+      setGameState(gameStates.lost)
+      return
     }
 
-    field.checked = true
+    // check if won!
     checkSurrounding(field)
-    setReloadBoard(reloadBoard+1)
+    // setReload(reload+1)
+    countChecked() // mark checked fields and reload board
   }
 
-  initBoard()
-  placeBombsRandomly()
+  const countChecked = () => {
+    let checkedFieldsCount = 0
+    boardArray.forEach(row => row.forEach(field => {
+      if(field.checked) { checkedFieldsCount++ }
+    }))
+    setFieldsChecked(checkedFieldsCount)
+  }
 
+  const setFieldImg = (field) => {
+    return gameOver() && field.bomb ? // game over? show all bombs
+    <>&#128163;</> :
+    field.flagged ? // field flagged by user? show flag 
+    <>&#127988;</> :
+    (field.bombsAround > 0 ? field.bombsAround : <>&nbsp;</>) // bombs around? show bomb count
+  // flag: &#127988
+  // pirate flag: &#65039
+  }
 
-  // render array
-  let jsxBoard = ""
-  // let styleBtn = { width: '20px', height: '20px', padding: 0, textAlign: 'center' }
+  const gameOver = ( ) => {
+    return gameState !== gameStates.running
+  }
 
-  // create board of buttons from two dimensional array
-  jsxBoard = boardArray.map((row, r) => {
-    return <div key={r}>{ 
-      row.map((field, c) => {
-        return <button key={c}
-          onClick={() => !gameOver ? checkField(field) : null}
+  const resetGame = () => {
+    setFieldsChecked(0)
+    setGameState(gameStates.running)
+    setBombsPlaced(false); 
+    setBoardArray([])
+  }
+
+  const createBoardUi = () => {
+    // create board of buttons from two dimensional array
+    return boardArray.map((row, r) => (
+      <div key={r}>{ 
+        row.map((field, c) => (
+        <button 
+          key={c}
+          onContextMenu={(e) => gameOver() ? null : flagField(e, field) }
+          onClick={() => gameOver() ? null : checkField(field)}
           style={{ 
             width: '30px', height: '30px', padding: 0, 
             textAlign: 'center', 
             backgroundColor: (field.checked ? 'red': '#ccc') 
-          }}>{
-            // (field.bombsAround > 0 ? field.bombsAround : <>&nbsp;</>)
-            field.bomb ? "b" : (field.bombsAround > 0 ? field.bombsAround : <>&nbsp;</>)
-        }</button>
-      })
-    }</div>
-  })
+          }}>{ setFieldImg(field)}</button>
+        ))}
+      </div>
+    ))
+  }
 
   return (
     <>
-      { jsxBoard }
+      { createBoardUi() }
       {/* {JSON.stringify(bombPositions, null, 2)} */}
-      { gameOver && <div>GAME OVER!</div>}
+      { gameOver() && <div> { gameState == gameStates.won ? "YOU WON!" : "YOU LOST!" } </div>}
+      <button style={{ marginTop: '10px'}} onClick={() => resetGame() } >New Game</button>
     </>
   );
 
