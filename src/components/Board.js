@@ -27,17 +27,15 @@ const Board = () => {
     let arr = new Array(boardConfig.rows)
     arr.fill(new Array(boardConfig.cols).fill(''))
     // initialize board objects
-    arr = arr.map((row, rowIndex) => {
-      return row.map((item, colIndex) => {
-        return { 
-          checked: false, 
-          flagged: false,
-          bomb: false, 
-          bombsAround: 0, 
-          row: rowIndex, 
-          col: colIndex }
+    arr = arr.map((row, rowIndex) => row.map((item, colIndex) => ({ 
+        checked: false, 
+        flagged: false,
+        bomb: false, 
+        bombsAround: 0, 
+        row: rowIndex, 
+        col: colIndex
       })
-    })
+    ))
     setBoardArray(arr)
   }
 
@@ -49,15 +47,13 @@ const Board = () => {
     
     // place configured amount of bombs randomly on board
     for(let i=0; i<boardConfig.bombs; i++) {
-      // generate random row / col entries and check if still free
-      // otherwise try once more
+
       let bombPlaced = false
   
-      let row = 0
-      let col = 0
       while(!bombPlaced) {
-        row = Math.floor(Math.random()*boardConfig.rows) // random row
-        col = Math.floor(Math.random()*boardConfig.cols) // random col
+        let row = Math.floor(Math.random()*boardConfig.rows) // random row
+        let col = Math.floor(Math.random()*boardConfig.cols) // random col
+        // avoid placing a bomb twice on the same spot...
         if(!isBomb(row, col)) {
           setBomb(row, col)
           bombPlaced = true
@@ -147,9 +143,7 @@ const Board = () => {
     // if we found a bomb in surrounding => check fields in surround which are no bombs and check THEIR surrounding too
     if(bombsAround == 0) {
       fieldsSurroundedToCheck.forEach(fieldSub => {
-        // if(!fieldSub.bomb && !fieldSub.checked) {
-          checkSurrounding(fieldSub)
-        // }
+        checkSurrounding(fieldSub)
       })
     }
   }
