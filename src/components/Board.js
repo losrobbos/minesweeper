@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useEffect } from "react";
 import Field from "./Field";
+import createObjectMatrix from "../lib/createObjectMatrix";
 
 const Board = () => {
 
@@ -12,6 +13,7 @@ const Board = () => {
   let [gameState, setGameState] = useState("running")
   let [reload, setReload] = useState(0)
 
+  // todo: move to state
   let boardConfig = {
     rows: 8,
     cols: 8,
@@ -25,18 +27,9 @@ const Board = () => {
 
     console.log("Creating board...")
 
-    let arr = new Array(boardConfig.rows)
-    arr.fill(new Array(boardConfig.cols).fill(''))
-    // initialize board objects
-    arr = arr.map((row, rowIndex) => row.map((item, colIndex) => ({ 
-        checked: false, 
-        flagged: false,
-        bomb: false, 
-        bombsAround: 0, 
-        row: rowIndex, 
-        col: colIndex
-      })
-    ))
+    let arr = createObjectMatrix(boardConfig.rows, boardConfig.cols, { 
+      checked: false, flagged: false, bomb: false, bombsAround: 0, 
+    })
     setBoardArray(arr)
   }
 
@@ -50,7 +43,7 @@ const Board = () => {
     for(let i=0; i<boardConfig.bombs; i++) {
 
       let bombPlaced = false
-  
+
       while(!bombPlaced) {
         let row = Math.floor(Math.random()*boardConfig.rows) // random row
         let col = Math.floor(Math.random()*boardConfig.cols) // random col
@@ -86,10 +79,8 @@ const Board = () => {
 
 
   /**
-   * Check surrounding of given field if it has bombs and calculate the amount
-   * If no bomb => check recursively once - we found a bomb we stop there 
-   *  
-   * @param {*} field
+   * Check surrounding of given field if it has bombs and calculate the amount of surrounding bombs
+   * If no bomb in surrounding => check recursively the fields in surrounding - once we found a bomb we stop there 
    */
   const checkSurrounding = (field) => {
     let row = field.row
@@ -146,7 +137,6 @@ const Board = () => {
   }
 
   const checkField = (field) => {
-    // console.log("Clicked: ", field)
 
     // bomb clicked? game ends!
     if(field.bomb) {
