@@ -23,7 +23,6 @@ const Field = ({ field, gameOver, flagField, checkField }) => {
   }
 
   return ( <button 
-    key={ field.row + "-" + field.col}
     onContextMenu={(e) => gameOver() ? null : flagField(e, field) }
     onClick={() => gameOver() ? null : checkField(field)}
     style={setFieldStyle(field)}>{ setFieldImg(field)}</button>  

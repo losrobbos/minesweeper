@@ -74,17 +74,6 @@ const Board = () => {
     boardArray[row][column].bomb = status
   }
 
-  // when field was clicked 
-  // => check if game is done!
-  // game is done if: all "checked" fields == amount of fields without bombs count
-  useEffect(() => {
-    if(fieldsChecked == boardConfig.fieldsNoBombs) {
-      console.log("Game won!")
-      setGameState(gameStates.won)
-    }
-  }, [fieldsChecked, boardConfig, gameStates])
-
-
   // board initialized? => place bombs
   useEffect(() => {
     if(boardArray.length > 0) {
@@ -165,12 +154,12 @@ const Board = () => {
       return
     }
 
-    // check if won!
     checkSurrounding(field)
-    // setReload(reload+1)
-    countChecked() // mark checked fields and reload board
+    countChecked() // mark checked fields and check if won
   }
 
+  // update total of checked fields
+  // will determine if player has won
   const countChecked = () => {
     let checkedFieldsCount = 0
     boardArray.forEach(row => row.forEach(field => {
@@ -179,16 +168,16 @@ const Board = () => {
     setFieldsChecked(checkedFieldsCount)
   }
 
-  const createBoardUi = () => {
-    // create board of buttons from two dimensional array
-    return boardArray.map((row, r) => (
-      <div key={r}>{ 
-        row.map((field, c) => (
-          <Field field={field} flagField={flagField} checkField={checkField} gameOver={gameOver} />
-        ))}
-      </div>
-    ))
-  }
+  // when field was clicked 
+  // => check if game is done!
+  // game is done if: all "checked" fields == amount of fields without bombs count
+  useEffect(() => {
+    if(fieldsChecked == boardConfig.fieldsNoBombs) {
+      console.log("Game won!")
+      setGameState(gameStates.won)
+    }
+  }, [fieldsChecked, boardConfig, gameStates])
+
 
   const gameOver = ( ) => {
     return gameState !== gameStates.running
@@ -199,6 +188,19 @@ const Board = () => {
     setGameState(gameStates.running)
     setBombsPlaced(false); 
     setBoardArray([])
+  }
+
+  const createBoardUi = () => {
+    // create board of buttons from two dimensional array
+    return boardArray.map((row, r) => (
+      <div key={r}>{ 
+        row.map((field, c) => (
+          <Field 
+            key={ r + "-" + c }
+            field={field} flagField={flagField} checkField={checkField} gameOver={gameOver} />
+        ))}
+      </div>
+    ))
   }
 
   return (
