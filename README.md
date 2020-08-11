@@ -4,29 +4,23 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 
 In this mini project we want to plan and code a Minesweeper Clone.
 
-Following the steps:
+Demo: [https://minesweeper-nine.vercel.app/](https://minesweeper-nine.vercel.app/)
+
+Basic app structure:
 - A board grid with configurable rows / columns amount
 - A configurable amount of bombs
 - Default configuration sets with rows, columns, bombs amounts
 
-State Planning:
-- Field states: bomb, bomb count in surrounding, bomb count in surrounding = 0 => check surrounding
+Component structuring:
+- Board component
+  - holds state of board fields and passes field state as prop to field components
+- Field component
 
 Algorithm: Recursion on click
 - check field state itself => bomb ends the game
-- check surrounding fields (9)
-  - how to actually check "surrounding" ? what kind of data structure to use?
-    - well, easy, we just check an two dimensional array
-    - we determine the surrounding per field and determine for each field the status
-    - and then we determine once more the status for each field of the surrounding by checking THEIR surrounding
-
-
-Component structuring:
-- Board component
-  - holds state of fields and passes it as prop 
-- Field component
-  - Clickable Button
-  - States (given via props)
+- check surrounding fields (8 fields)
+  - determine bomb count
+  - if bomb count == 0: check on recursively
 
 
 ## Available Scripts
