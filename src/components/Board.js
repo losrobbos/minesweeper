@@ -1,193 +1,131 @@
-import React, { useState } from "react";
+import React, { useReducer } from "react";
 import { useEffect } from "react";
 import Field from "./Field";
 import createObjectMatrix from "../lib/createObjectMatrix";
+import checkFieldSurrounding from "../lib/checkFieldSurrounding";
+
+const INIT_BOARD = "INIT_BOARD"
+const CHECK_FIELD = "CHECK_FIELD"
+const FLAG_FIELD = "FLAG_FIELD"
+
+const gameStates = { running: 'running', lost: 'lost', won: 'won' }
+
+const initialState = {
+  board: [], config: { rows: 8, cols: 8, bombs: 10 }, gameState: gameStates.running, 
+}
+
+const boardReducer = (state, action) => {
+
+  console.log("REDUCER - Action received: ", action)
+
+  switch(action.type) {
+    
+    case INIT_BOARD:
+      let boardConfig = {...state.config, ...action.payload} // get config from payload
+      boardConfig.fieldsTotal = boardConfig.rows*boardConfig.cols
+      boardConfig.fieldsNoBombs = boardConfig.fieldsTotal-boardConfig.bombs
+
+      // create two dimensional array of field objects
+      let boardInitial = createObjectMatrix(boardConfig.rows, boardConfig.cols, { 
+        checked: false, flagged: false, bomb: false, bombsAround: 0, 
+      })
+
+      // place bombs (randomly)
+      for(let i=0; i<boardConfig.bombs; i++) {
+
+        let bombPlaced = false
+  
+        while(!bombPlaced) {
+          let row = Math.floor(Math.random()*boardConfig.rows) // random row
+          let col = Math.floor(Math.random()*boardConfig.cols) // random col
+
+          // avoid placing a bomb twice on the same spot...
+          let field = boardInitial[row][col]
+          if(!field.bomb) {
+            field.bomb = true
+            bombPlaced = true
+          }
+        }
+      }
+  
+      return { ...state, 
+        board: boardInitial, 
+        config: boardConfig,
+        gameState: gameStates.running // reset game state
+      }
+
+    case CHECK_FIELD:
+      // bomb clicked? game ends!
+      let field = action.payload
+
+      if(field.bomb) {        
+        return {...state, gameState: gameStates.lost}
+      }
+
+      // check fields recursively
+      let boardUpdated = checkFieldSurrounding(field, state.board, state.config )
+
+      // check game state
+      let fieldsChecked = 0
+      let gameState = state.gameState
+      boardUpdated.forEach(row => row.forEach(field => {
+        if(field.checked) { fieldsChecked++ }
+      }))
+      if(fieldsChecked == state.config.fieldsNoBombs) {
+        console.log("Game won!")
+        gameState = gameStates.won
+      }
+  
+      return {...state, board: [...boardUpdated], gameState }
+
+    case FLAG_FIELD:
+      let { row, col } = action.payload
+      let boardCopy = [...state.board]
+      let fieldToFlag = boardCopy[row][col]
+      fieldToFlag.flagged = !fieldToFlag.flagged
+      return {...state, board: boardCopy }
+
+    default:
+      return state
+  }
+
+}
+
 
 const Board = () => {
 
-  let [boardArray, setBoardArray] = useState([])
-  let [bombsPlaced, setBombsPlaced] = useState(false)
-  let [fieldsChecked, setFieldsChecked] = useState(0)
-  
-  let gameStates = { running: 'running', lost: 'lost', won: 'won' }
-  let [gameState, setGameState] = useState("running")
-  let [reload, setReload] = useState(0)
+  let [state, dispatch] = useReducer(boardReducer, initialState)
+  let { board, config, gameState } = state
 
-  // todo: move to state
-  let boardConfig = {
-    rows: 8,
-    cols: 8,
-    bombs: 10
-  }
-  boardConfig.fieldsTotal = boardConfig.rows*boardConfig.cols
-  boardConfig.fieldsNoBombs = boardConfig.fieldsTotal-boardConfig.bombs
-
-
-  const initBoard = () => {
-
-    console.log("Creating board...")
-
-    let arr = createObjectMatrix(boardConfig.rows, boardConfig.cols, { 
-      checked: false, flagged: false, bomb: false, bombsAround: 0, 
-    })
-    setBoardArray(arr)
-  }
-
-  const placeBombsRandomly = () => {
-    
-    if(bombsPlaced) { return } // bombs already placed? return
-    
-    console.log("Placing bombs...")
-    
-    // place configured amount of bombs randomly on board
-    for(let i=0; i<boardConfig.bombs; i++) {
-
-      let bombPlaced = false
-
-      while(!bombPlaced) {
-        let row = Math.floor(Math.random()*boardConfig.rows) // random row
-        let col = Math.floor(Math.random()*boardConfig.cols) // random col
-        // avoid placing a bomb twice on the same spot...
-        if(!isBomb(row, col)) {
-          setBomb(row, col)
-          bombPlaced = true
-        }
-      }
-    }
-    setBombsPlaced(true)
-  }
-
-  const getField = (row, column) => {
-    return boardArray[row][column]
-  }
-  const isBomb = (row, column) => {
-    return getField(row, column).bomb
-  }
-  const setBomb = (row, column, status = true) => {
-    boardArray[row][column].bomb = status
-  }
-
-  // board initialized? => place bombs
+  // initialize board on load
   useEffect(() => {
-    if(boardArray.length > 0) {
-      placeBombsRandomly()
-    }
-    else {
-      initBoard()
-    }
-  }, [boardArray])
+    dispatch({type: "INIT_BOARD"})
+  }, [])
 
 
-  /**
-   * Check surrounding of given field if it has bombs and calculate the amount of surrounding bombs
-   * If no bomb in surrounding => check recursively the fields in surrounding - once we found a bomb we stop there 
-   */
-  const checkSurrounding = (field) => {
-    let row = field.row
-    let col = field.col
-
-    // determine range around the given field where to check for bombs
-    let rowStart = (row > 0 ? row-1 : row)
-    let rowEnd = (row < boardConfig.rows-1 ? row+1 : row)
-    let colStart = (col > 0 ? col-1 : col)
-    let colEnd = (col < boardConfig.cols-1 ? col+1 : col)
-
-    let bombsAround = 0;
-    let fieldsSurroundedToCheck = []
-
-    // check direct surrounding
-
-    // loop through rows
-    for(let r = rowStart; r<=rowEnd; r++) {
-      // loop through cols
-      for(let c = colStart; c<=colEnd; c++) {
-        // skip field itself
-        if(r == row && c == col) {
-          continue;
-        }
-        // ignore already checked fields
-        let field = getField(r, c)
-        if(field.bomb) {
-          bombsAround++
-        }
-        // also check the surrounding of the given field
-        if(!field.bomb && !field.checked) {
-          fieldsSurroundedToCheck.push(field)
-        }
-      }
-    }
-    // set bombs that were found in surrounding
-    field.bombsAround = bombsAround
-    field.checked = true
-
-    // only continue checking fields which do not have a bomb in their surrounding
-    // if we found a bomb in surrounding => check fields in surround which are no bombs and check THEIR surrounding too
-    if(bombsAround == 0) {
-      fieldsSurroundedToCheck.forEach(fieldSub => {
-        checkSurrounding(fieldSub)
-      })
-    }
-  }
-
-  const flagField = (e, field) => {
-    e.preventDefault()
-    
-    field.flagged = !field.flagged
-    setReload(reload +1)
-  }
-
-  const checkField = (field) => {
-
-    // bomb clicked? game ends!
-    if(field.bomb) {
-      setGameState(gameStates.lost)
-      return
-    }
-
-    checkSurrounding(field)
-    countChecked() // mark checked fields and check if won
-  }
-
-  // update total of checked fields
-  // will determine if player has won
-  const countChecked = () => {
-    let checkedFieldsCount = 0
-    boardArray.forEach(row => row.forEach(field => {
-      if(field.checked) { checkedFieldsCount++ }
-    }))
-    setFieldsChecked(checkedFieldsCount)
-  }
-
-  // when field was clicked 
-  // => check if game is done!
-  // game is done if: all "checked" fields == amount of fields without bombs count
-  useEffect(() => {
-    if(fieldsChecked == boardConfig.fieldsNoBombs) {
-      console.log("Game won!")
-      setGameState(gameStates.won)
-    }
-  }, [fieldsChecked, boardConfig, gameStates])
-
-
-  const gameOver = ( ) => {
+  const gameOver = () => {
+    console.log("Game State: ", gameState)
     return gameState !== gameStates.running
   }
 
   const resetGame = () => {
-    setFieldsChecked(0)
-    setGameState(gameStates.running)
-    setBombsPlaced(false); 
-    setBoardArray([])
+    dispatch({type: "INIT_BOARD"})
   }
+
+  const flagField = (field) => dispatch({type: FLAG_FIELD, payload: field})
+  const checkField = (field) => dispatch({type: CHECK_FIELD, payload: field})
 
   const createBoardUi = () => {
     // create board of buttons from two dimensional array
-    return boardArray.map((row, r) => (
+    return board.map((row, r) => (
       <div key={r}>{ 
         row.map((field, c) => (
           <Field 
             key={ r + "-" + c }
-            field={field} flagField={flagField} checkField={checkField} gameOver={gameOver} />
+            field={field} 
+            flagField={() => flagField(field)} 
+            checkField={() => checkField(field)} 
+            gameOver={gameOver} />
         ))}
       </div>
     ))
