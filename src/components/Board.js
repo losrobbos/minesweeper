@@ -3,9 +3,6 @@ import { useEffect } from "react";
 
 const Board = () => {
 
-  // - Field states: bomb, bomb count in surrounding, bomb count in surrounding = 0 => check surrounding
-  // - stop surrounding check if a bomb was found in surrounding => display bomb count
-
   let [boardArray, setBoardArray] = useState([])
   let [bombsPlaced, setBombsPlaced] = useState(false)
   let [fieldsChecked, setFieldsChecked] = useState(0)
@@ -82,11 +79,8 @@ const Board = () => {
 
   // when field was clicked 
   // => check if game is done!
-  // game is done if:
-  //  - checked fields cound == normal Fields count
-  //  - flags do not need - and prob SHOULD not get evaluated
+  // game is done if: all "checked" fields == amount of fields without bombs count
   useEffect(() => {
-    console.log("Fields checked: ", `${fieldsChecked}/${boardConfig.fieldsNoBombs}`)
     if(fieldsChecked == boardConfig.fieldsNoBombs) {
       console.log("Game won!")
       setGameState(gameStates.won)
@@ -104,10 +98,10 @@ const Board = () => {
     }
   }, [boardArray])
 
-/**
-   * Return value of check surrounding?
-   * 
-   * => nothing: just mark fields and label bomb count!
+
+  /**
+   * Check surrounding of given field if it has bombs and calculate the amount
+   * If no bomb => check recursively once - we found a bomb we stop there 
    *  
    * @param {*} field
    */
@@ -115,6 +109,7 @@ const Board = () => {
     let row = field.row
     let col = field.col
 
+    // determine range around the given field where to check for bombs
     let rowStart = (row > 0 ? row-1 : row)
     let rowEnd = (row < boardConfig.rows-1 ? row+1 : row)
     let colStart = (col > 0 ? col-1 : col)
@@ -138,21 +133,23 @@ const Board = () => {
         if(field.bomb) {
           bombsAround++
         }
-        fieldsSurroundedToCheck.push(field)
+        // also check the surrounding of the given field
+        if(!field.bomb && !field.checked) {
+          fieldsSurroundedToCheck.push(field)
+        }
       }
     }
     // set bombs that were found in surrounding
     field.bombsAround = bombsAround
     field.checked = true
-    // setFieldsChecked([...fieldsChecked, 1])
 
     // only continue checking fields which do not have a bomb in their surrounding
     // if we found a bomb in surrounding => check fields in surround which are no bombs and check THEIR surrounding too
     if(bombsAround == 0) {
       fieldsSurroundedToCheck.forEach(fieldSub => {
-        if(!fieldSub.bomb && !fieldSub.checked) {
+        // if(!fieldSub.bomb && !fieldSub.checked) {
           checkSurrounding(fieldSub)
-        }
+        // }
       })
     }
   }
@@ -189,23 +186,22 @@ const Board = () => {
 
   const setFieldImg = (field) => {
     return gameOver() && field.bomb ? // game over? show all bombs
-    <>&#128163;</> :
-    field.flagged ? // field flagged by user? show flag 
-    <>&#127988;</> :
-    (field.bombsAround > 0 ? field.bombsAround : <>&nbsp;</>) // bombs around? show bomb count
+    <>&#128163;</> : field.flagged ? // field flagged by user? show flag 
+    <>&#127988;</> : (field.bombsAround > 0 ? field.bombsAround : <>&nbsp;</>) // bombs around? show bomb count
   // flag: &#127988
   // pirate flag: &#65039
   }
 
-  const gameOver = ( ) => {
-    return gameState !== gameStates.running
-  }
-
-  const resetGame = () => {
-    setFieldsChecked(0)
-    setGameState(gameStates.running)
-    setBombsPlaced(false); 
-    setBoardArray([])
+  const setFieldStyle = (field) => {
+    let style = { 
+      width: '30px', 
+      height: '30px', 
+      padding: 0, 
+      textAlign: 'center', 
+      backgroundColor: (field.checked ? 'darkgray': '#ccc'),
+      fontWeight: 'bold'
+    }
+    return style
   }
 
   const createBoardUi = () => {
@@ -217,14 +213,21 @@ const Board = () => {
           key={c}
           onContextMenu={(e) => gameOver() ? null : flagField(e, field) }
           onClick={() => gameOver() ? null : checkField(field)}
-          style={{ 
-            width: '30px', height: '30px', padding: 0, 
-            textAlign: 'center', 
-            backgroundColor: (field.checked ? 'red': '#ccc') 
-          }}>{ setFieldImg(field)}</button>
+          style={setFieldStyle(field)}>{ setFieldImg(field)}</button>
         ))}
       </div>
     ))
+  }
+
+  const gameOver = ( ) => {
+    return gameState !== gameStates.running
+  }
+
+  const resetGame = () => {
+    setFieldsChecked(0)
+    setGameState(gameStates.running)
+    setBombsPlaced(false); 
+    setBoardArray([])
   }
 
   return (
