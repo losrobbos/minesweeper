@@ -17,9 +17,9 @@ Component structuring:
 - Field component
 
 Algorithm: Recursion on click
-- check field state itself => bomb ends the game
-- check surrounding fields (8 fields)
-  - determine bomb count
+- check state of clicked field: if bomb => ends the game
+- if no bomb: check surrounding fields (8 fields)
+  - determine bomb count for each surrounding field
   - if bomb count == 0: check on recursively
 
 
